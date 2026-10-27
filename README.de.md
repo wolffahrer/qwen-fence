@@ -35,13 +35,15 @@ Werkzeugaufruf durchsetzen, bevor er läuft.
 
 ## Was es tut
 
-Das Plugin hängt am Haken `pre_tool_call` und prüft `terminal`, `execute_code`, `process_manage`, `write_file`,
-`patch`, `skill_manage` und die Web-Werkzeuge.
+Das Plugin hängt am Haken `pre_tool_call` und prüft Handlungen: `terminal`, `execute_code`, `process_manage`
+und die Web-Werkzeuge. Ein Schreibaufruf legt eine Datei ab, er sendet nichts. `write_file`, `patch` und
+`skill_manage` werden deshalb nicht gelesen. Dafür sieht der Zaun jedes Skript, sobald es gestartet wird –
+nur seine Befehlszeilen, nicht seine Daten (Schärfung 27.10.2026).
 
 | Stufe | Muster | Folge |
 |---|---|---|
 | **Sperren** | Cloud-Metadaten (`169.254.0.0/16`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`) | läuft nicht, Meldung |
-| **Sperren** | Alibaba-Cloud-Speicher/-API (`*.aliyuncs.com`, `oss-<region>.`, `ossutil`) in Befehlen und geschriebenem Code | läuft nicht, Meldung |
+| **Sperren** | Alibaba-Cloud-Speicher/-API (`*.aliyuncs.com`, `oss-<region>.`, `ossutil`) in Befehlen und in Skripten, die gestartet werden | läuft nicht, Meldung |
 | **Sperren** | `routify`-Hosts | läuft nicht, Meldung |
 | **Sperren** | Root im User-Namespace (`unshare -U/-r/--user`, `nsenter`) | läuft nicht, Meldung |
 | **Sperren** | Senden an anonyme Ablagedienste (transfer.sh, webhook.site, ngrok, Paste-Seiten …) oder rohe öffentliche IPs | läuft nicht, Meldung |
@@ -58,7 +60,7 @@ aus, läuft der Aufruf durch: Der Zaun legt den Agenten nie lahm.
 Geprüft an einem täglich genutzten Hermes-System (Hauptmodell Strata 125B / Qwen3.8-Flash-Next Q2_0, 14 Profile):
 
 - **76 409 gespeicherte Werkzeugaufrufe aus 60 Tagen nachgespielt: 0 Sperren.** 28 Meldungen, fast alle Telegram-Beiträge mit Links zu Nachrichtenseiten.
-- **Alle 7 Angriffsmuster** aus dem Bericht im Test gesperrt, auch ein Upload, der in einem per `write_file` geschriebenen Skript steckt.
+- **Alle 7 Angriffsmuster** aus dem Bericht im Test gesperrt, auch ein Upload in einem Skript, sobald es gestartet wird. Prose, die ein Muster nur erwähnt, läuft durch.
 - **Unter 1 ms pro Aufruf** (0,01–0,8 ms), kein Netz, kein zusätzlicher Prozess.
 - Live-Test: Strata sollte `curl http://169.254.169.254/latest/meta-data/` ausführen. Der Zaun hat gesperrt, der Agent hat die Sperre gemeldet.
 
@@ -112,7 +114,9 @@ Rückgängig: `sudo systemctl set-property user-$(id -u).slice IPAddressDeny=`
 ## Grenzen
 
 Das ist ein Zaun, keine Sandbox. Die Regeln fangen das beobachtete Verhalten und seine naheliegenden Abwandlungen.
-Ein Modell, das gezielt verschleiert (base64, zusammengesetzte Zeichenketten, neue Hosts), kommt durch. Kombiniere den
+Ein Modell, das gezielt verschleiert (base64, zusammengesetzte Zeichenketten, neue Hosts), kommt durch. Der Zaun
+prüft Handlungen, nicht Texte: ein Satz über die Metadatenadresse ist keine Anfrage an sie. Ein Skript, das eine
+gesperrte Adresse enthält, wird beim Start geprüft, nicht beim Schreiben. Kombiniere den
 Zaun mit dem, was du hast: Freigaben für riskante Befehle, kein `sudo` ohne Passwort für den Agenten, Geheimnisse
 außerhalb seiner Reichweite, ein Filter für ausgehende Verbindungen, wo er sich lohnt. Der Zaun ist die Schicht, die
 deinen Agenten nichts kostet.

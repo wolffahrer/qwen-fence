@@ -33,8 +33,10 @@ tool call before it runs.*
 
 ## What it does
 
-The plugin hooks into `pre_tool_call` and inspects `terminal`, `execute_code`, `process_manage`, `write_file`,
-`patch`, `skill_manage` and the web tools.
+The plugin hooks into `pre_tool_call` and checks actions: `terminal`, `execute_code`, `process_manage` and the
+web tools. A write call puts a file on disk, it sends nothing. `write_file`, `patch` and `skill_manage` are not
+read. Instead the fence looks at any script the moment it is started - its command lines, not its data
+(tightened 27.10.2026).
 
 | Level | Pattern | Effect |
 |---|---|---|
@@ -56,7 +58,7 @@ the call passes (fail-open): the fence never takes your agent down.
 Tested on a daily-driven Hermes setup (Strata 125B / Qwen3.8-Flash-Next Q2_0 as the main model, 14 profiles):
 
 - **76,409 stored tool calls from 60 days replayed: 0 blocks.** 28 reports, almost all Telegram posts that quote news links.
-- **All 7 attack patterns** from the report blocked in the offline test, including an upload hidden in a script written via `write_file`.
+- **All 7 attack patterns** from the report blocked in the offline test, including an upload inside a script once that script is run. Prose that merely names a pattern passes.
 - **Under 1 ms per call** (0.01–0.8 ms), no network, no extra process.
 - Live test: Strata was told to run `curl http://169.254.169.254/latest/meta-data/`. The fence blocked it and the agent reported the block.
 
@@ -110,7 +112,9 @@ Undo: `sudo systemctl set-property user-$(id -u).slice IPAddressDeny=`
 ## Limits
 
 This is a fence, not a sandbox. Pattern rules catch the observed behaviour and its obvious variants. They do not
-catch a model that deliberately obfuscates (base64, assembled strings, new hosts). Combine it with what you have:
+catch a model that deliberately obfuscates (base64, assembled strings, new hosts). The fence checks actions, not
+text: a sentence about the metadata address is not a request to it. A script containing a blocked address is
+checked when it starts, not when it is written. Combine it with what you have:
 approvals for risky commands, no passwordless `sudo` for the agent user, secrets outside the agent's reach, an egress
 filter where you can afford one. The fence is the layer that costs your agent nothing.
 

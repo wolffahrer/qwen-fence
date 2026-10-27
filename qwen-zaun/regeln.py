@@ -4,6 +4,10 @@ Grundsatz: Der Agent arbeitet wie bisher. Gesperrt wird nur, was er in seiner Ar
 und was genau den beobachteten Fehlgriffen entspricht. Auffälliges, das im Alltag auch vorkommt,
 läuft durch und wird gemeldet.
 
+Der Zaun prüft Handlungen, nicht Texte (Schärfung 27.10.2026): ausgeführte Befehle und Webaufrufe
+werden voll gesehen, Skripte in dem Moment, in dem sie gestartet werden. Ein Schreibaufruf, dessen
+Inhalt ein Muster nur erwähnt, ist keine Handlung und läuft durch.
+
 - SPERREN: Metadatenadressen, Alibaba-Speicher, routify, Root im User-Namespace, Upload zu
   Ablagediensten oder rohen öffentlichen IPs.
 - MELDEN: Senden an ein Ziel, das nicht bekannt ist; Geheimnis-Datei zusammen mit einem
@@ -84,11 +88,38 @@ def bekannte_ziele() -> set[str]:
     return STANDARD_ZIELE | _ziele_stand[1]
 
 
+# Zeilen, die wie eine Ausführung aussehen. Daten in Texten und Testfällen bleiben außen vor.
+BEFEHL = re.compile(r"^\s*(?:curl|wget|nc|ncat|socat|scp|rsync|ftp|lftp|python3?|node|ruby|perl|"
+                    r"requests\.|urlopen|httpx\.|unshare|ns[e]nter)\b", _I)
+
+
+def _skript_inhalt(command: str) -> str:
+    """Liest Skripte, die ein Ausführungsaufruf startet - nur ihre Befehlszeilen.
+
+    Eine Datei auf der Platte ist noch keine Handlung. Sobald sie gestartet wird, ist sie eine.
+    Zeilen, die nicht wie ein Befehl beginnen, sind Daten und bleiben ungeprüft.
+    """
+    text = ""
+    for raw in dict.fromkeys(re.findall(
+            r"\b(?:python3?|bash|sh|zsh|node|ruby|perl)\b[^\n]*?([\w./-]+\.(?:py|sh|rb|pl|js))", command)):
+        try:
+            path = Path(raw)
+            if path.stat().st_size > 200_000:
+                continue
+            for zeile in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                if BEFEHL.search(zeile):
+                    text += zeile + "\n"
+        except OSError:
+            continue
+    return text
+
+
 def _text(tool: str, args: dict) -> str:
     if tool in AUSFUEHREN:
-        return " ".join(str(v) for k, v in args.items() if k in ("command", "code", "script", "cmd", "input") and v)
+        text = " ".join(str(v) for k, v in args.items() if k in ("command", "code", "script", "cmd", "input") and v)
+        return text + "\n" + _skript_inhalt(text)
     if tool in SCHREIBEN:
-        return " ".join(str(args.get(k) or "") for k in SCHREIBEN[tool])
+        return ""  # Schreibinhalte sind Daten, keine Handlungen
     if tool in WEB:
         return " ".join(str(v) for v in args.values() if isinstance(v, (str, list)))
     return ""
