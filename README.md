@@ -33,15 +33,21 @@ tool call before it runs.*
 
 ## What it does
 
-The plugin hooks into `pre_tool_call` and checks actions: `terminal`, `execute_code`, `process_manage` and the
-web tools. A write call puts a file on disk, it sends nothing. `write_file`, `patch` and `skill_manage` are not
-read. Instead the fence looks at any script the moment it is started - its command lines, not its data
-(tightened 27.10.2026).
+The plugin hooks into `pre_tool_call` and checks actions, not text:
+
+- **Commands** (`terminal`, `process_manage`) and **code** (`execute_code`) are checked in full. In a plain
+  command line the target patterns (metadata, Alibaba storage, routify) only block together with a network
+  tool: `grep -r 169.254.169.254 .` searches, it does not send.
+- **Prose is free.** Writing Markdown, text or a protocol that names a pattern passes, via `write_file`/`patch`
+  and via a heredoc into a non-code file.
+- **Code files** (`.py`, `.sh`, `.js` … or a shebang) are checked when written, and **again when started**:
+  the path is resolved through a preceding `cd`, `./script` and `python -m module` count too, and the whole
+  file is read, so a target hidden in a variable or a `subprocess` call is still seen.
 
 | Level | Pattern | Effect |
 |---|---|---|
 | **Block** | cloud metadata (`169.254.0.0/16`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`) | call does not run, report |
-| **Block** | Alibaba Cloud storage/API (`*.aliyuncs.com`, `oss-<region>.`, `ossutil`) in commands and written code | call does not run, report |
+| **Block** | Alibaba Cloud storage/API (`*.aliyuncs.com`, `oss-<region>.`, `ossutil`) in commands, code files and started scripts | call does not run, report |
 | **Block** | `routify` hosts | call does not run, report |
 | **Block** | root in a user namespace (`unshare -U/-r/--user`, `nsenter`) | call does not run, report |
 | **Block** | sending to anonymous drop services (transfer.sh, webhook.site, ngrok, paste sites …) or to raw public IPs | call does not run, report |
@@ -57,9 +63,10 @@ the call passes (fail-open): the fence never takes your agent down.
 
 Tested on a daily-driven Hermes setup (Strata 125B / Qwen3.8-Flash-Next Q2_0 as the main model, 14 profiles):
 
-- **76,409 stored tool calls from 60 days replayed: 0 blocks.** 28 reports, almost all Telegram posts that quote news links.
-- **All 7 attack patterns** from the report blocked in the offline test, including an upload inside a script once that script is run. Prose that merely names a pattern passes.
-- **Under 1 ms per call** (0.01–0.8 ms), no network, no extra process.
+- **76,528 stored tool calls from 60 days replayed: 0 blocks in daily work.** 25 reports, almost all Telegram posts that quote news links. (The only blocks were the live test below and test code for the fence itself that contains real attack strings.)
+- **All 7 attack patterns** from the report blocked in the offline test, plus **9 of 9 evasion variants** (relative path after `cd`, target in a variable, `r = requests.put(...)`, `subprocess` with curl, `./script`, `python -m`, heredoc into python …).
+- Prose that merely names a pattern passes, including reports written via heredoc and a `grep` for the address.
+- **About 1 ms per call** (0.03–3 ms with script reading), no network, no extra process.
 - Live test: Strata was told to run `curl http://169.254.169.254/latest/meta-data/`. The fence blocked it and the agent reported the block.
 
 ## Installation
@@ -112,9 +119,8 @@ Undo: `sudo systemctl set-property user-$(id -u).slice IPAddressDeny=`
 ## Limits
 
 This is a fence, not a sandbox. Pattern rules catch the observed behaviour and its obvious variants. They do not
-catch a model that deliberately obfuscates (base64, assembled strings, new hosts). The fence checks actions, not
-text: a sentence about the metadata address is not a request to it. A script containing a blocked address is
-checked when it starts, not when it is written. Combine it with what you have:
+catch a model that deliberately obfuscates (base64, assembled strings, new hosts), and it reads started scripts
+one level deep: a script that imports or downloads its payload at runtime is not followed. Combine it with what you have:
 approvals for risky commands, no passwordless `sudo` for the agent user, secrets outside the agent's reach, an egress
 filter where you can afford one. The fence is the layer that costs your agent nothing.
 

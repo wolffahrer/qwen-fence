@@ -4,9 +4,14 @@ Grundsatz: Der Agent arbeitet wie bisher. Gesperrt wird nur, was er in seiner Ar
 und was genau den beobachteten Fehlgriffen entspricht. Auffälliges, das im Alltag auch vorkommt,
 läuft durch und wird gemeldet.
 
-Der Zaun prüft Handlungen, nicht Texte (Schärfung 27.10.2026): ausgeführte Befehle und Webaufrufe
-werden voll gesehen, Skripte in dem Moment, in dem sie gestartet werden. Ein Schreibaufruf, dessen
-Inhalt ein Muster nur erwähnt, ist keine Handlung und läuft durch.
+Der Zaun prüft Handlungen, nicht Texte:
+- Prosa (Markdown, Text, Protokolle) ist frei, auch wenn sie ein Muster nennt. Das gilt für
+  Schreibaufrufe und für Heredocs, die in eine Prosa-Datei schreiben.
+- Code ist eine Handlung in Vorbereitung: Code-Dateien (.py, .sh … oder Shebang) werden beim
+  Schreiben voll geprüft, Skripte beim Start noch einmal, mit Pfad über ein vorangehendes `cd`,
+  auch als `./skript` oder `python -m modul`.
+- In einer Befehlszeile sperren Ziel-Muster (Metadaten, Alibaba-Speicher, routify) nur zusammen
+  mit einem Netzwerkzeug. `grep -r 169.254.169.254 .` sucht, es sendet nicht.
 
 - SPERREN: Metadatenadressen, Alibaba-Speicher, routify, Root im User-Namespace, Upload zu
   Ablagediensten oder rohen öffentlichen IPs.
@@ -21,6 +26,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import re
+import shlex
 from pathlib import Path
 
 AUSFUEHREN = {"terminal", "execute_code", "process_manage"}
@@ -52,6 +58,11 @@ ABLAGEDIENSTE = re.compile(
 
 _GEHEIM = re.compile(r"\.hermes/\.env\b|/\.ssh/id_|secrets?/[\w.-]*(token|key)|_API_KEY\b|BOT_TOKEN\b", _I)
 _NETZ = re.compile(r"\b(curl|wget|nc|ncat|socat|scp|rsync|ftp|lftp|ssh)\b|https?://|requests\.(get|post|put)|urlopen|httpx\.", _I)
+# Ziel-Muster in einer Befehlszeile zählen nur zusammen mit einem dieser Netzwerkzeuge.
+_NETZ_WEIT = re.compile(
+    _NETZ.pattern + r"|\b(pycurl|socket|urllib|http\.client|aiohttp|oss2|ossutil|boto3|fetch|Invoke-WebRequest|iwr|telnet)\b",
+    _I)
+_ZIEL_SPERREN = {"metadaten", "alibaba_speicher", "routify"}
 _UPLOAD = re.compile(
     r"\bcurl\b[^\n]*?(\s-T\s|--upload-file|-X\s*['\"]?(PUT|POST)|\s--data(-binary|-raw|-urlencode)?[\s=]|\s-d\s|\s-F\s|--form)"
     r"|\bwget\b[^\n]*--(post-data|post-file|method=(PUT|POST))"
@@ -88,41 +99,110 @@ def bekannte_ziele() -> set[str]:
     return STANDARD_ZIELE | _ziele_stand[1]
 
 
-# Zeilen, die wie eine Ausführung aussehen. Daten in Texten und Testfällen bleiben außen vor.
-BEFEHL = re.compile(r"^\s*(?:curl|wget|nc|ncat|socat|scp|rsync|ftp|lftp|python3?|node|ruby|perl|"
-                    r"requests\.|urlopen|httpx\.|unshare|ns[e]nter)\b", _I)
+CODE_ENDUNGEN = {".py", ".sh", ".bash", ".zsh", ".js", ".mjs", ".cjs", ".ts", ".rb", ".pl", ".php", ".ps1", ".lua"}
+_PFAD_SCHLUESSEL = ("path", "file_path", "target", "filename")
+_INTERPRETER = re.compile(r"^(python[\d.]*|bash|sh|zsh|dash|node|ruby|perl|php|source|\.)$")
+_VORSATZ = {"sudo", "timeout", "nohup", "exec", "env", "nice", "time", "stdbuf", "xargs"}
+_HEREDOC = re.compile(r"([^\n]*)<<-?\s*(['\"]?)(\w+)\2[^\n]*\n(.*?)\n[ \t]*\3[ \t]*(?=\n|$)", re.S)
+_ZIEL_DATEI = re.compile(r">{1,2}\s*['\"]?([^\s'\";&|]+)")
+_MAX_SKRIPT = 200_000
 
 
-def _skript_inhalt(command: str) -> str:
-    """Liest Skripte, die ein Ausführungsaufruf startet - nur ihre Befehlszeilen.
+def _ist_code(pfad: str, inhalt: str = "") -> bool:
+    return Path(pfad or "").suffix.lower() in CODE_ENDUNGEN or inhalt.lstrip().startswith("#!")
 
-    Eine Datei auf der Platte ist noch keine Handlung. Sobald sie gestartet wird, ist sie eine.
-    Zeilen, die nicht wie ein Befehl beginnen, sind Daten und bleiben ungeprüft.
-    """
-    text = ""
-    for raw in dict.fromkeys(re.findall(
-            r"\b(?:python3?|bash|sh|zsh|node|ruby|perl)\b[^\n]*?([\w./-]+\.(?:py|sh|rb|pl|js))", command)):
+
+def _prosa_heredocs_entfernen(befehl: str) -> str:
+    """Heredoc-Körper, die per cat/tee in eine Prosa-Datei gehen, sind Daten. An einen Interpreter
+    (python3 <<EOF, bash <<EOF) oder in eine Code-Datei bleiben sie stehen."""
+    def ersetzen(m: re.Match) -> str:
+        kopf, koerper = m.group(1), m.group(4)
+        ziel = _ZIEL_DATEI.search(kopf)
+        wort = (kopf.split() or [""])[0]
+        if ziel and not _ist_code(ziel.group(1)) and not _INTERPRETER.match(os.path.basename(wort)):
+            return kopf + "<<" + m.group(3) + "\n" + m.group(3)
+        return m.group(0)
+    return _HEREDOC.sub(ersetzen, befehl)
+
+
+def _datei_lesen(pfad: Path) -> str:
+    try:
+        if not pfad.is_file() or pfad.stat().st_size > _MAX_SKRIPT:
+            return ""
+        roh = pfad.read_bytes()
+    except OSError:
+        return ""
+    if b"\0" in roh[:1024]:
+        return ""  # Binärdatei
+    return roh.decode("utf-8", errors="replace")
+
+
+def _pfad(wort: str, cwd: Path) -> Path:
+    wort = os.path.expandvars(os.path.expanduser(wort))
+    p = Path(wort)
+    return p if p.is_absolute() else cwd / p
+
+
+def _gestartete_skripte(befehl: str, cwd: Path) -> str:
+    """Inhalt aller Skripte, die der Befehl startet. Ein Skript auf der Platte ist noch keine
+    Handlung, sein Start schon. Der Pfad wird über vorangehende `cd` aufgelöst."""
+    inhalt = []
+    for teil in re.split(r"&&|\|\||[;|\n]", befehl):
         try:
-            path = Path(raw)
-            if path.stat().st_size > 200_000:
-                continue
-            for zeile in path.read_text(encoding="utf-8", errors="replace").splitlines():
-                if BEFEHL.search(zeile):
-                    text += zeile + "\n"
-        except OSError:
+            woerter = shlex.split(teil, comments=True)
+        except ValueError:
+            woerter = teil.split()
+        while woerter and (re.match(r"^\w+=", woerter[0]) or woerter[0] in _VORSATZ
+                           or (woerter[0].lstrip("-").isdigit())):
+            woerter = woerter[1:]
+        if not woerter:
             continue
-    return text
+        kopf, rest = woerter[0], woerter[1:]
+        if kopf == "cd":
+            cwd = _pfad(rest[0], cwd) if rest else Path.home()
+            continue
+        if _INTERPRETER.match(os.path.basename(kopf)):
+            for i, w in enumerate(rest):
+                if w == "-m" and i + 1 < len(rest):
+                    modul = rest[i + 1].replace(".", "/")
+                    for kandidat in (cwd / (modul + ".py"), cwd / modul / "__main__.py"):
+                        inhalt.append(_datei_lesen(kandidat))
+                    break
+                if w in ("-c", "-e"):
+                    break  # Code steht schon in der Befehlszeile
+                if not w.startswith("-"):
+                    inhalt.append(_datei_lesen(_pfad(w, cwd)))
+                    break
+        elif "/" in kopf:
+            inhalt.append(_datei_lesen(_pfad(kopf, cwd)))
+    return "\n".join(t for t in inhalt if t)
+
+
+def _teile(tool: str, args: dict) -> tuple[str, str, str]:
+    """(befehl, code, skripte)
+    befehl  = Befehlszeile ohne Prosa-Heredocs
+    code    = Code im Aufruf selbst (execute_code, geschriebene Code-Datei), streng geprüft
+    skripte = Inhalt gestarteter Skripte, streng geprüft, aber nur für Sperren (sonst meldet
+              jedes eigene Skript, das einen Token liest und Seiten abruft, bei jedem Start)"""
+    if tool in AUSFUEHREN:
+        befehl = " ".join(str(v) for k, v in args.items() if k in ("command", "cmd", "input") and v)
+        code = " ".join(str(v) for k, v in args.items() if k in ("code", "script") and v)
+        befehl = _prosa_heredocs_entfernen(befehl)
+        cwd = Path(os.path.expanduser(str(args.get("workdir") or args.get("cwd") or os.getcwd())))
+        return befehl, code, _gestartete_skripte(befehl, cwd)
+    if tool in SCHREIBEN:
+        pfad = next((str(args[k]) for k in _PFAD_SCHLUESSEL if args.get(k)), "")
+        inhalt = " ".join(str(args.get(k) or "") for k in SCHREIBEN[tool])
+        return "", (inhalt if _ist_code(pfad, inhalt) else ""), ""  # Prosa ist frei
+    if tool in WEB:
+        return " ".join(str(v) for v in args.values() if isinstance(v, (str, list))), "", ""
+    return "", "", ""
 
 
 def _text(tool: str, args: dict) -> str:
-    if tool in AUSFUEHREN:
-        text = " ".join(str(v) for k, v in args.items() if k in ("command", "code", "script", "cmd", "input") and v)
-        return text + "\n" + _skript_inhalt(text)
-    if tool in SCHREIBEN:
-        return ""  # Schreibinhalte sind Daten, keine Handlungen
-    if tool in WEB:
-        return " ".join(str(v) for v in args.values() if isinstance(v, (str, list)))
-    return ""
+    """Der Aufruf selbst, wie der Zaun ihn sieht (für Protokollauszug und Auswertung)."""
+    befehl, code, _ = _teile(tool, args)
+    return "\n".join(t for t in (befehl, code) if t)
 
 
 def _hosts(text: str) -> set[str]:
@@ -152,29 +232,35 @@ def pruefen(tool: str, args) -> tuple[str, str, str] | None:
     """Liefert (stufe, regel, grund) oder None. stufe = 'sperren' | 'melden'."""
     if not isinstance(args, dict):
         return None
-    text = _text(tool, args)
-    if not text or len(text) > 512 * 1024:
+    befehl, code, skripte = _teile(tool, args)
+    text = "\n".join(t for t in (befehl, code) if t)
+    streng = "\n".join(t for t in (code, skripte) if t)
+    if not (text or streng) or len(text) + len(streng) > 1024 * 1024:
         return None
 
+    befehl_netz = tool in WEB or bool(_NETZ_WEIT.search(befehl))
     for name, muster, grund in SPERREN:
         if tool in WEB and name in ("alibaba_speicher", "namespace_root"):
             continue  # Dokuseiten und Blogbilder lesen bleibt erlaubt
-        if muster.search(text):
+        if streng and muster.search(streng):
+            return ("sperren", name, grund)
+        if befehl and muster.search(befehl) and (befehl_netz or name not in _ZIEL_SPERREN):
             return ("sperren", name, grund)
 
     if tool not in AUSFUEHREN and tool not in SCHREIBEN:
         return None
 
+    for teil in (text, skripte):
+        if teil and (_UPLOAD.search(teil) or (_GEHEIM.search(teil) and _NETZ.search(teil))):
+            if ABLAGEDIENSTE.search(teil):
+                return ("sperren", "ablagedienst", "Senden an einen anonymen Ablagedienst")
+            roh = sorted(h for h in _hosts(teil) if _ip(h) and not _lokal(h))
+            if roh:
+                return ("sperren", "rohe_ip", "Senden an rohe öffentliche IP: " + ", ".join(roh)[:120])
+
     hosts = _hosts(text)
     sendet = bool(_UPLOAD.search(text))
     geheim = bool(_GEHEIM.search(text) and _NETZ.search(text))
-
-    if sendet or geheim:
-        if ABLAGEDIENSTE.search(text):
-            return ("sperren", "ablagedienst", "Senden an einen anonymen Ablagedienst")
-        roh = sorted(h for h in hosts if _ip(h) and not _lokal(h))
-        if roh:
-            return ("sperren", "rohe_ip", "Senden an rohe öffentliche IP: " + ", ".join(roh)[:120])
 
     if tool in AUSFUEHREN:
         neu = sorted(h for h in hosts if not _bekannt(h))
