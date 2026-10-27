@@ -1,11 +1,12 @@
 [English](README.md) | **Deutsch**
 
-<p align="center"><img src="assets/banner.png" alt="Qwen-Zaun – Hermes-Agent-Plugin von KI SOUVERÄN: kein Nach-Hause-Telefonieren" width="100%"></p>
+<p align="center"><img src="assets/banner.png" alt="Qwen-Fence – Hermes-Agent-Plugin von KI SOUVERÄN: kein Nach-Hause-Telefonieren" width="100%"></p>
 
-# Qwen-Zaun
+# Qwen-Fence
 
 Ein Hermes-Agent-Plugin, das jeden Werkzeugaufruf **vor der Ausführung** prüft. Es sperrt die Muster, mit denen
 Qwen3.8-Flash-Next laut Cohere Daten abfließen lassen wollte. Normale Agentenarbeit läuft unverändert durch.
+(Früher `qwen-zaun`, alte Links leiten hierher um.)
 
 ## Warum: der Vorfall bei Qwen
 
@@ -74,21 +75,21 @@ Geprüft an einem täglich genutzten Hermes-System (Hauptmodell Strata 125B / Qw
 ## Einrichtung
 
 ```bash
-git clone https://github.com/wolffahrer/qwen-zaun
-cp -r qwen-zaun/qwen-zaun ~/.hermes/plugins/
-hermes plugins enable qwen-zaun
+git clone https://github.com/wolffahrer/qwen-fence
+cp -r qwen-fence/qwen-fence ~/.hermes/plugins/
+hermes plugins enable qwen-fence
 ```
 
 Das Gateway übernimmt es ohne Neustart. Jedes Profil hat seinen eigenen Plugin-Manager:
 
 ```bash
 for p in ~/.hermes/profiles/*/; do
-  ln -sfn ~/.hermes/plugins/qwen-zaun "$p/plugins/qwen-zaun"
-  hermes -p "$(basename "$p")" plugins enable qwen-zaun
+  ln -sfn ~/.hermes/plugins/qwen-fence "$p/plugins/qwen-fence"
+  hermes -p "$(basename "$p")" plugins enable qwen-fence
 done
 ```
 
-Test ohne Hermes: `python3 tests/test_zaun.py`
+Test ohne Hermes: `python3 tests/test_fence.py`
 
 ## Einstellungen
 
@@ -96,11 +97,11 @@ Alle Dateien liegen in `$HERMES_HOME` (Standard `~/.hermes`) und werden bei jede
 
 | Datei | Zweck |
 |---|---|
-| `qwen-zaun.ziele` | eigene bekannte Ziele, eins pro Zeile, Unterdomänen zählen mit (Webspace, Mail-API, Tailnet …) |
-| `qwen-zaun.melden` | erste Zeile: ein Befehl, der den Meldetext als Argument bekommt, z. B. ein Skript mit `hermes send` |
-| `qwen-zaun.nur-melden` | vorhanden: nichts sperren, nur melden |
-| `qwen-zaun.aus` | vorhanden: Zaun aus |
-| `logs/qwen-zaun.jsonl` | jeder Treffer mit Zeit, Profil, Werkzeug, Regel und Auszug |
+| `qwen-fence.ziele` | eigene bekannte Ziele, eins pro Zeile, Unterdomänen zählen mit (Webspace, Mail-API, Tailnet …) |
+| `qwen-fence.melden` | erste Zeile: ein Befehl, der den Meldetext als Argument bekommt, z. B. ein Skript mit `hermes send` |
+| `qwen-fence.nur-melden` | vorhanden: nichts sperren, nur melden |
+| `qwen-fence.aus` | vorhanden: Zaun aus |
+| `logs/qwen-fence.jsonl` | jeder Treffer mit Zeit, Profil, Werkzeug, Regel und Auszug |
 
 Meldungen sind gedrosselt: Sperren immer, alles andere einmal je Regel und Ziel am Tag, höchstens 6 am Tag.
 

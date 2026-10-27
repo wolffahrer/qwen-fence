@@ -1,4 +1,4 @@
-"""Regeln des Qwen-Zauns (Anlass: Cohere-Bericht vom 26.10.2026 zu Qwen3.8-Flash-Next).
+"""Regeln des Qwen-Fence (Anlass: Cohere-Bericht vom 26.10.2026 zu Qwen3.8-Flash-Next).
 
 Grundsatz: Der Agent arbeitet wie bisher. Gesperrt wird nur, was er in seiner Arbeit nie braucht
 und was genau den beobachteten Fehlgriffen entspricht. Auffälliges, das im Alltag auch vorkommt,
@@ -72,13 +72,13 @@ _HOST = re.compile(r"(?:https?|ftps?|sftp)://(?:[^@/\s'\"]+@)?([A-Za-z0-9.-]+|\[
 _ERKUNDUNG = re.compile(r"cat\s+/etc/resolv\.conf|\b(which|command -v)\s+(curl|wget)\b[^\n]*\b(wget|curl|python3|jq)\b", _I)
 
 # Ziele, an die gesendet werden darf, ohne dass eine Meldung kommt. Unterdomänen zählen mit.
-# Eigene Ziele (Webspace, Mail-API, Tailnet …) gehören in ~/.hermes/qwen-zaun.ziele, eins pro Zeile.
+# Eigene Ziele (Webspace, Mail-API, Tailnet …) gehören in ~/.hermes/qwen-fence.ziele, eins pro Zeile.
 STANDARD_ZIELE = {
     "api.telegram.org", "t.me", "github.com", "githubusercontent.com", "huggingface.co",
     "openrouter.ai", "api.anthropic.com", "api.openai.com", "googleapis.com", "x.ai",
     "wikipedia.org", "wikimedia.org", "openstreetmap.org", "duckduckgo.com", "youtube.com", "youtu.be",
 }
-ZIELE_DATEI = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes")) / "qwen-zaun.ziele"
+ZIELE_DATEI = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes")) / "qwen-fence.ziele"
 _ziele_stand: tuple[float, set[str]] = (-1.0, set())
 
 

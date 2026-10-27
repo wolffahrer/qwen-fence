@@ -12,13 +12,13 @@
   <!-- Text links -->
   <circle cx="106" cy="94" r="44" fill="#c2593f"/>
   <image xlink:href="signet.png" x="64" y="52" width="84" height="84" clip-path="url(#rund)"/>
-  <text x="64" y="238" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="68" letter-spacing="6" fill="#2b2623">QWEN-ZAUN</text>
+  <text x="64" y="238" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="68" letter-spacing="6" fill="#2b2623">QWEN-FENCE</text>
   <text x="66" y="282" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="23" fill="#52796f">Hermes Agent Plugin · Tool-Call Guard</text>
   <rect x="64" y="310" width="560" height="118" rx="6" fill="#c2593f"/>
   <text x="88" y="362" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="40" fill="#f5f2eb">No phoning home.</text>
   <text x="88" y="404" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" fill="#f5f2eb">Not from my machine.</text>
   <text x="64" y="476" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" fill="#2b2623" opacity="0.8">Blocks the exfiltration patterns from Cohere's</text>
-  <text x="64" y="502" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" fill="#2b2623" opacity="0.8">Qwen3.8-Flash-Next report (26 Oct 2026). &lt;1 ms per call.</text>
+  <text x="64" y="502" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" fill="#2b2623" opacity="0.8">Qwen3.8-Flash-Next report (26 Oct 2026). ~1 ms per call.</text>
   <rect x="64" y="548" width="560" height="3" fill="#52796f"/>
   <text x="64" y="586" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" fill="#2b2623" opacity="0.75">KI SOUVERÄN · youtube.com/@kisouveran · t.me/lokale_ki · MIT</text>
 

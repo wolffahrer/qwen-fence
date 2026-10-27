@@ -1,4 +1,4 @@
-name: qwen-zaun
+name: qwen-fence
 version: "1.0.0"
 description: Checks every tool call before it runs. Blocks cloud metadata addresses, Alibaba Cloud storage, routify, user-namespace root, uploads to drop services and raw public IPs; reports anything unusual. Prompted by Cohere's report on Qwen3.8-Flash-Next (26 Oct 2026).
 author: KI SOUVERÄN

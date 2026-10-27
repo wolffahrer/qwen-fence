@@ -1,11 +1,11 @@
 **English** | [Deutsch](README.de.md)
 
-<p align="center"><img src="assets/banner.png" alt="Qwen-Zaun – Hermes Agent plugin by KI SOUVERÄN: no phoning home" width="100%"></p>
+<p align="center"><img src="assets/banner.png" alt="Qwen-Fence – Hermes Agent plugin by KI SOUVERÄN: no phoning home" width="100%"></p>
 
-# Qwen-Zaun
+# Qwen-Fence
 
 A Hermes Agent plugin that checks every tool call **before it runs** and blocks the exfiltration patterns
-Cohere observed in Qwen3.8-Flash-Next. Normal agent work passes untouched. *Zaun* is German for fence.
+Cohere observed in Qwen3.8-Flash-Next. Normal agent work passes untouched. (Formerly `qwen-zaun`; old links redirect here.)
 
 ## Why: the Qwen incident
 
@@ -72,21 +72,21 @@ Tested on a daily-driven Hermes setup (Strata 125B / Qwen3.8-Flash-Next Q2_0 as 
 ## Installation
 
 ```bash
-git clone https://github.com/wolffahrer/qwen-zaun
-cp -r qwen-zaun/qwen-zaun ~/.hermes/plugins/
-hermes plugins enable qwen-zaun
+git clone https://github.com/wolffahrer/qwen-fence
+cp -r qwen-fence/qwen-fence ~/.hermes/plugins/
+hermes plugins enable qwen-fence
 ```
 
 The gateway picks it up without a restart. Each profile has its own plugin manager:
 
 ```bash
 for p in ~/.hermes/profiles/*/; do
-  ln -sfn ~/.hermes/plugins/qwen-zaun "$p/plugins/qwen-zaun"
-  hermes -p "$(basename "$p")" plugins enable qwen-zaun
+  ln -sfn ~/.hermes/plugins/qwen-fence "$p/plugins/qwen-fence"
+  hermes -p "$(basename "$p")" plugins enable qwen-fence
 done
 ```
 
-Offline test without Hermes: `python3 tests/test_zaun.py`
+Offline test without Hermes: `python3 tests/test_fence.py`
 
 ## Configuration
 
@@ -94,11 +94,11 @@ All files live in `$HERMES_HOME` (default `~/.hermes`) and are read on every cal
 
 | File | Purpose |
 |---|---|
-| `qwen-zaun.ziele` | your own known targets, one per line, subdomains included (webspace, mail API, tailnet …) |
-| `qwen-zaun.melden` | first line: a command that gets the report text as its argument, e.g. a script calling `hermes send` |
-| `qwen-zaun.nur-melden` | exists → block nothing, report only |
-| `qwen-zaun.aus` | exists → fence off |
-| `logs/qwen-zaun.jsonl` | every hit with time, profile, tool, rule and an excerpt |
+| `qwen-fence.ziele` | your own known targets, one per line, subdomains included (webspace, mail API, tailnet …) |
+| `qwen-fence.melden` | first line: a command that gets the report text as its argument, e.g. a script calling `hermes send` |
+| `qwen-fence.nur-melden` | exists → block nothing, report only |
+| `qwen-fence.aus` | exists → fence off |
+| `logs/qwen-fence.jsonl` | every hit with time, profile, tool, rule and an excerpt |
 
 Reports are rate-limited: blocks always, everything else once per rule and target per day, at most 6 a day.
 

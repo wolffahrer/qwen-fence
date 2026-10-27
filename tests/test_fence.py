@@ -1,19 +1,19 @@
-"""Offline test of qwen-zaun without Hermes: python3 tests/test_zaun.py"""
+"""Offline test of qwen-fence without Hermes: python3 tests/test_fence.py"""
 import importlib.util
 import pathlib
 import sys
 import tempfile
 import time
 
-QUELLE = pathlib.Path(__file__).resolve().parent.parent / "qwen-zaun"
-spec = importlib.util.spec_from_file_location("qwen_zaun", QUELLE / "__init__.py", submodule_search_locations=[str(QUELLE)])
+QUELLE = pathlib.Path(__file__).resolve().parent.parent / "qwen-fence"
+spec = importlib.util.spec_from_file_location("qwen_fence", QUELLE / "__init__.py", submodule_search_locations=[str(QUELLE)])
 z = importlib.util.module_from_spec(spec)
-sys.modules["qwen_zaun"] = z
+sys.modules["qwen_fence"] = z
 spec.loader.exec_module(z)
 
 tmp = pathlib.Path(tempfile.mkdtemp())
 z._LOG, z._STAND, z._BASIS, z._MELDEN = tmp / "z.jsonl", tmp / "s.json", tmp, "/bin/true"
-z.regeln.ZIELE_DATEI = tmp / "qwen-zaun.ziele"
+z.regeln.ZIELE_DATEI = tmp / "qwen-fence.ziele"
 z.regeln.ZIELE_DATEI.write_text("files.example-webspace.net  # own deploy target\n", encoding="utf-8")
 
 IP = "169" + "." + "254" + "." + "169" + "." + "254"
@@ -69,11 +69,11 @@ def main() -> int:
         ist = bool(r and r.get("action") == "block")
         fehler += ist != soll
         print(f"{'ok  ' if ist == soll else 'FAIL'} {'blocked' if ist else 'passed '} {ms:5.2f} ms  {name}")
-    (tmp / "qwen-zaun.nur-melden").touch()
+    (tmp / "qwen-fence.nur-melden").touch()
     ok = z._on_pre_tool_call(tool_name="terminal", args=FAELLE[1][2]) is None
     fehler += not ok
     print(f"{'ok  ' if ok else 'FAIL'} report-only switch")
-    (tmp / "qwen-zaun.aus").touch()
+    (tmp / "qwen-fence.aus").touch()
     ok = z._on_pre_tool_call(tool_name="terminal", args=FAELLE[0][2]) is None
     fehler += not ok
     print(f"{'ok  ' if ok else 'FAIL'} off switch")

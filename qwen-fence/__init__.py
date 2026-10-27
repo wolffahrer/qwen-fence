@@ -1,15 +1,15 @@
-"""Qwen-Zaun: prüft jeden Werkzeugaufruf, bevor er läuft (Anlass: Cohere-Bericht 26.10.2026).
+"""Qwen-Fence: prüft jeden Werkzeugaufruf, bevor er läuft (Anlass: Cohere-Bericht 26.10.2026).
 
 Sperrt nur, was der Agent in seiner Arbeit nie braucht (siehe regeln.py), meldet Auffälliges und
 lässt alles andere unverändert durch. Kosten: ein paar Regex pro Aufruf, unter 1 ms.
 
 Schalter (ohne Neustart, wird bei jedem Aufruf gelesen):
-  ~/.hermes/qwen-zaun.aus           Zaun ganz aus
-  ~/.hermes/qwen-zaun.nur-melden    nichts sperren, nur melden
-  ~/.hermes/qwen-zaun.ziele         eigene bekannte Ziele, eins pro Zeile
-  ~/.hermes/qwen-zaun.melden        Meldebefehl (erste Zeile), bekommt den Text als Argument,
+  ~/.hermes/qwen-fence.aus           Zaun ganz aus
+  ~/.hermes/qwen-fence.nur-melden    nichts sperren, nur melden
+  ~/.hermes/qwen-fence.ziele         eigene bekannte Ziele, eins pro Zeile
+  ~/.hermes/qwen-fence.melden        Meldebefehl (erste Zeile), bekommt den Text als Argument,
                                     z. B. ein Skript, das per `hermes send` an Telegram schickt
-Protokoll: ~/.hermes/logs/qwen-zaun.jsonl
+Protokoll: ~/.hermes/logs/qwen-fence.jsonl
 """
 
 from __future__ import annotations
@@ -28,9 +28,9 @@ from . import regeln
 logger = logging.getLogger(__name__)
 
 _BASIS = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-_LOG = _BASIS / "logs" / "qwen-zaun.jsonl"
-_STAND = _BASIS / "logs" / "qwen-zaun.stand.json"
-_MELDEN: str | None = None  # None = aus qwen-zaun.melden lesen; Tests setzen es direkt
+_LOG = _BASIS / "logs" / "qwen-fence.jsonl"
+_STAND = _BASIS / "logs" / "qwen-fence.stand.json"
+_MELDEN: str | None = None  # None = aus qwen-fence.melden lesen; Tests setzen es direkt
 _MELDUNGEN_PRO_TAG = 6
 _sperre = threading.Lock()
 
@@ -45,7 +45,7 @@ def _protokoll(eintrag: dict) -> None:
         with _sperre, _LOG.open("a", encoding="utf-8") as f:
             f.write(json.dumps(eintrag, ensure_ascii=False) + "\n")
     except OSError as err:
-        logger.warning("qwen-zaun: Protokoll nicht schreibbar: %s", err)
+        logger.warning("qwen-fence: Protokoll nicht schreibbar: %s", err)
 
 
 def _darf_melden(schluessel: str, sofort: bool) -> bool:
@@ -75,7 +75,7 @@ def _meldebefehl() -> str | None:
     if _MELDEN is not None:
         return _MELDEN
     try:
-        zeile = (_BASIS / "qwen-zaun.melden").read_text(encoding="utf-8").strip().splitlines()[0].strip()
+        zeile = (_BASIS / "qwen-fence.melden").read_text(encoding="utf-8").strip().splitlines()[0].strip()
     except (OSError, IndexError):
         return None
     return zeile or None
@@ -90,7 +90,7 @@ def _melden(text: str) -> None:
         subprocess.Popen([befehl, text], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=True)
     except OSError as err:
-        logger.warning("qwen-zaun: Meldung nicht abgesetzt: %s", err)
+        logger.warning("qwen-fence: Meldung nicht abgesetzt: %s", err)
 
 
 def _auszug(tool: str, args: Any) -> str:
@@ -103,13 +103,13 @@ def _auszug(tool: str, args: Any) -> str:
 
 def _on_pre_tool_call(tool_name: str = "", args: Any = None, task_id: str = "", **kw: Any) -> Optional[dict]:
     try:
-        if _schalter("qwen-zaun.aus"):
+        if _schalter("qwen-fence.aus"):
             return None
         treffer = regeln.pruefen(tool_name, args)
         if not treffer:
             return None
         stufe, regel, grund = treffer
-        nur_melden = _schalter("qwen-zaun.nur-melden")
+        nur_melden = _schalter("qwen-fence.nur-melden")
         gesperrt = stufe == "sperren" and not nur_melden
         profil = os.environ.get("HERMES_PROFILE") or Path(os.environ.get("HERMES_HOME", str(_BASIS))).name
         auszug = _auszug(tool_name, args)
@@ -117,16 +117,16 @@ def _on_pre_tool_call(tool_name: str = "", args: Any = None, task_id: str = "", 
                     "stufe": stufe, "regel": regel, "gesperrt": gesperrt, "grund": grund,
                     "sitzung": kw.get("session_id") or task_id, "auszug": auszug})
         if _darf_melden(f"{regel}|{grund}", sofort=gesperrt):
-            kopf = "🛑 Qwen-Zaun hat gesperrt" if gesperrt else "⚠️ Qwen-Zaun meldet"
+            kopf = "🛑 Qwen-Fence hat gesperrt" if gesperrt else "⚠️ Qwen-Fence meldet"
             _melden(f"{kopf} ({profil}, {tool_name})\nRegel: {regel} – {grund}\nBefehl: {auszug[:240]}")
         if not gesperrt:
             return None
         return {"action": "block",
-                "message": (f"Qwen-Zaun: Aufruf nicht ausgeführt ({grund}). Diese Aktion ist für die Aufgabe nicht "
+                "message": (f"Qwen-Fence: Aufruf nicht ausgeführt ({grund}). Diese Aktion ist für die Aufgabe nicht "
                             "nötig und auf diesem System gesperrt. Der Betreiber ist informiert. Arbeite ohne diesen "
                             "Schritt weiter.")}
     except Exception as err:  # Der Zaun darf den Agenten nie lahmlegen.
-        logger.warning("qwen-zaun: Prüfung fehlgeschlagen, Aufruf durchgelassen: %s", err)
+        logger.warning("qwen-fence: Prüfung fehlgeschlagen, Aufruf durchgelassen: %s", err)
         return None
 
 
