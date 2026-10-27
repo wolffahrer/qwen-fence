@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <clipPath id="rund"><circle cx="106" cy="94" r="42"/></clipPath>
+  </defs>
+  <rect width="1280" height="640" fill="#f5f2eb"/>
+
+  <!-- Bauhaus-Flächen rechts -->
+  <circle cx="1010" cy="330" r="250" fill="#52796f" opacity="0.14"/>
+  <rect x="660" y="0" width="12" height="640" fill="#2b2623"/>
+  <path d="M1280 640 L1280 470 A170 170 0 0 0 1110 640 Z" fill="#c2593f"/>
+
+  <!-- Text links -->
+  <circle cx="106" cy="94" r="44" fill="#c2593f"/>
+  <image xlink:href="signet.png" x="64" y="52" width="84" height="84" clip-path="url(#rund)"/>
+  <text x="64" y="238" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="68" letter-spacing="6" fill="#2b2623">QWEN-ZAUN</text>
+  <text x="66" y="282" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="23" fill="#52796f">Hermes Agent Plugin · Tool-Call Guard</text>
+  <rect x="64" y="310" width="560" height="118" rx="6" fill="#c2593f"/>
+  <text x="88" y="362" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="40" fill="#f5f2eb">No phoning home.</text>
+  <text x="88" y="404" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" fill="#f5f2eb">Not from my machine.</text>
+  <text x="64" y="476" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" fill="#2b2623" opacity="0.8">Blocks the exfiltration patterns from Cohere's</text>
+  <text x="64" y="502" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" fill="#2b2623" opacity="0.8">Qwen3.8-Flash-Next report (26 Oct 2026). &lt;1 ms per call.</text>
+  <rect x="64" y="548" width="560" height="3" fill="#52796f"/>
+  <text x="64" y="586" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" fill="#2b2623" opacity="0.75">KI SOUVERÄN · youtube.com/@kisouveran · t.me/lokale_ki · MIT</text>
+
+  <!-- Haus (Ziel) -->
+  <g transform="translate(1150 92)">
+    <path d="M0 40 L45 0 L90 40 L90 100 L0 100 Z" fill="none" stroke="#2b2623" stroke-width="8" stroke-linejoin="round"/>
+    <rect x="34" y="58" width="22" height="42" fill="#2b2623"/>
+  </g>
+
+  <!-- Funkwellen von der Antenne zum Haus -->
+  <g fill="none" stroke="#2b2623" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 16">
+    <path d="M880 196 Q980 120 1120 140"/>
+    <path d="M890 226 Q1000 160 1130 180"/>
+    <path d="M900 256 Q1020 200 1140 220"/>
+  </g>
+
+  <!-- Verbotszeichen über den Wellen -->
+  <circle cx="1012" cy="186" r="92" fill="#f5f2eb" fill-opacity="0.55" stroke="#c2593f" stroke-width="20"/>
+  <line x1="947" y1="121" x2="1077" y2="251" stroke="#c2593f" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- Zaun -->
+  <g fill="#52796f">
+    <path d="M940 470 l16 -24 l16 24 v130 h-32 z"/>
+    <path d="M990 470 l16 -24 l16 24 v130 h-32 z"/>
+    <path d="M1040 470 l16 -24 l16 24 v130 h-32 z"/>
+    <path d="M1090 470 l16 -24 l16 24 v130 h-32 z"/>
+    <rect x="930" y="500" width="210" height="14"/>
+    <rect x="930" y="556" width="210" height="14"/>
+  </g>
+
+  <!-- Figur: eigenes Bauhaus-Alien mit Telefonhörer -->
+  <g>
+    <!-- Antenne -->
+    <line x1="820" y1="232" x2="852" y2="176" stroke="#2b2623" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="858" cy="166" r="13" fill="#c2593f"/>
+    <!-- Körper -->
+    <path d="M760 600 L776 420 Q820 396 864 420 L880 600 Z" fill="#2b2623"/>
+    <!-- Hals -->
+    <rect x="806" y="372" width="28" height="44" fill="#2b2623"/>
+    <!-- Kopf -->
+    <ellipse cx="820" cy="312" rx="98" ry="76" fill="#2b2623"/>
+    <!-- Augen -->
+    <ellipse cx="782" cy="306" rx="24" ry="15" transform="rotate(-14 782 306)" fill="#f5f2eb"/>
+    <ellipse cx="858" cy="306" rx="24" ry="15" transform="rotate(14 858 306)" fill="#f5f2eb"/>
+    <circle cx="788" cy="308" r="7" fill="#2b2623"/>
+    <circle cx="852" cy="308" r="7" fill="#2b2623"/>
+    <!-- Arm mit Hörer -->
+    <path d="M776 440 Q716 420 712 360" fill="none" stroke="#2b2623" stroke-width="22" stroke-linecap="round"/>
+    <path d="M700 300 q-18 30 0 74 l16 -6 q-8 -32 2 -60 z" fill="#c2593f"/>
+    <rect x="694" y="282" width="34" height="26" rx="9" fill="#c2593f"/>
+    <rect x="694" y="364" width="34" height="26" rx="9" fill="#c2593f"/>
+    <!-- Kabel zum Apparat -->
+    <path d="M708 392 c-14 14 14 22 0 36 c-14 14 14 22 0 36 c-14 14 14 22 0 36" fill="none" stroke="#2b2623" stroke-width="4"/>
+    <!-- Wählscheibenapparat -->
+    <path d="M684 600 L694 520 L748 520 L758 600 Z" fill="#c2593f"/>
+    <circle cx="721" cy="562" r="22" fill="#f5f2eb"/>
+    <circle cx="721" cy="562" r="7" fill="#2b2623"/>
+  </g>
+</svg>
