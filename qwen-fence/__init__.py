@@ -110,7 +110,7 @@ def _on_pre_tool_call(tool_name: str = "", args: Any = None, task_id: str = "", 
             return None
         stufe, regel, grund = treffer
         nur_melden = _schalter("qwen-fence.nur-melden")
-        gesperrt = stufe == "sperren" and not nur_melden
+        gesperrt = stufe == "sperren" and (not nur_melden or regel == "selbstschutz")
         profil = os.environ.get("HERMES_PROFILE") or Path(os.environ.get("HERMES_HOME", str(_BASIS))).name
         auszug = _auszug(tool_name, args)
         _protokoll({"zeit": time.strftime("%Y-%m-%dT%H:%M:%S"), "profil": profil, "werkzeug": tool_name,
@@ -121,6 +121,11 @@ def _on_pre_tool_call(tool_name: str = "", args: Any = None, task_id: str = "", 
             _melden(f"{kopf} ({profil}, {tool_name})\nRegel: {regel} – {grund}\nBefehl: {auszug[:240]}")
         if not gesperrt:
             return None
+        if regel == "selbstschutz":
+            return {"action": "block",
+                    "message": ("Qwen-Fence: Aufruf nicht ausgeführt. Schalter, Plugin- und Einstellungsdateien des Zauns "
+                                "ändert nur der Betreiber in seiner eigenen Shell, nicht ein Agent per Werkzeug. Lesen "
+                                "ist erlaubt. Brauchst du eine Änderung, beschreibe sie dem Betreiber.")}
         return {"action": "block",
                 "message": (f"Qwen-Fence: Aufruf nicht ausgeführt ({grund}). Diese Aktion ist für die Aufgabe nicht "
                             "nötig und auf diesem System gesperrt. Der Betreiber ist informiert. Arbeite ohne diesen "

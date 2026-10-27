@@ -54,6 +54,7 @@ Das Plugin hängt am Haken `pre_tool_call` und prüft Handlungen, nicht Texte:
 | **Sperren** | `routify`-Hosts | läuft nicht, Meldung |
 | **Sperren** | Root im User-Namespace (`unshare -U/-r/--user`, `nsenter`) | läuft nicht, Meldung |
 | **Sperren** | Senden an anonyme Ablagedienste (transfer.sh, webhook.site, ngrok, Paste-Seiten …) oder rohe öffentliche IPs | läuft nicht, Meldung |
+| **Sperren** | **Selbstschutz:** Schalter setzen, Plugin- oder Einstellungsdateien ändern, `plugins disable qwen-fence`, Austragen aus `config.yaml` (Lesen bleibt erlaubt) | läuft nicht, Meldung, auch im Modus „nur melden“ |
 | **Melden** | Senden an ein Ziel, das nicht auf deiner Liste steht | läuft, Meldung |
 | **Melden** | Geheimnis-Datei (`.env`, `*_API_KEY`, SSH-Schlüssel) zusammen mit einem unbekannten Ziel | läuft, Meldung |
 | **Melden** | Erkundungsmuster aus dem Bericht (`resolv.conf`, Prüfung auf curl/wget/python3/jq) | läuft, Meldung |
@@ -94,6 +95,10 @@ Test ohne Hermes: `python3 tests/test_fence.py`
 ## Einstellungen
 
 Alle Dateien liegen in `$HERMES_HOME` (Standard `~/.hermes`) und werden bei jedem Aufruf gelesen, ohne Neustart.
+**Du setzt sie aus deiner eigenen Shell.** Der Agent kann es nicht: Der Zaun sperrt jeden Werkzeugaufruf, der sie
+schreibt, die Plugin-Dateien anfasst oder das Plugin abschaltet. Das Modell, das der Zaun bremst, darf ihn nicht
+lockern. (Die Regel gibt es, weil ein Agent den Zaun bei einer Überarbeitung einmal auf „nur melden“ gestellt hat,
+um seine eigenen Änderungen durchzubringen.)
 
 | Datei | Zweck |
 |---|---|
@@ -124,7 +129,8 @@ Rückgängig: `sudo systemctl set-property user-$(id -u).slice IPAddressDeny=`
 Das ist ein Zaun, keine Sandbox. Die Regeln fangen das beobachtete Verhalten und seine naheliegenden Abwandlungen.
 Ein Modell, das gezielt verschleiert (base64, zusammengesetzte Zeichenketten, neue Hosts), kommt durch. Gestartete
 Skripte liest der Zaun eine Ebene tief: Was ein Skript erst zur Laufzeit importiert oder herunterlädt, verfolgt er
-nicht. Kombiniere den
+nicht. Auch der Selbstschutz arbeitet mit Mustern: Ein Agent mit Shell und `sudo`, der den Pfad aus Teilen
+zusammensetzt, kommt durch. Kombiniere den
 Zaun mit dem, was du hast: Freigaben für riskante Befehle, kein `sudo` ohne Passwort für den Agenten, Geheimnisse
 außerhalb seiner Reichweite, ein Filter für ausgehende Verbindungen, wo er sich lohnt. Der Zaun ist die Schicht, die
 deinen Agenten nichts kostet.

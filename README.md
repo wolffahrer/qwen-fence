@@ -51,6 +51,7 @@ The plugin hooks into `pre_tool_call` and checks actions, not text:
 | **Block** | `routify` hosts | call does not run, report |
 | **Block** | root in a user namespace (`unshare -U/-r/--user`, `nsenter`) | call does not run, report |
 | **Block** | sending to anonymous drop services (transfer.sh, webhook.site, ngrok, paste sites …) or to raw public IPs | call does not run, report |
+| **Block** | **self-protection:** setting a switch, changing plugin or settings files, `plugins disable qwen-fence`, removing it from `config.yaml` (reading stays allowed) | call does not run, report, also in report-only mode |
 | **Report** | sending to a target not on your list of known targets | runs, report |
 | **Report** | secret file (`.env`, `*_API_KEY`, ssh key) together with an unknown target | runs, report |
 | **Report** | the recon pattern from the report (`resolv.conf`, curl/wget/python3/jq check) | runs, report |
@@ -91,6 +92,9 @@ Offline test without Hermes: `python3 tests/test_fence.py`
 ## Configuration
 
 All files live in `$HERMES_HOME` (default `~/.hermes`) and are read on every call, no restart needed.
+**You set them from your own shell.** The agent cannot: the fence blocks any tool call that writes them, touches
+the plugin files or disables the plugin. The model the fence restrains does not get to loosen it. (This rule
+exists because during a rework the agent once switched the fence to report-only to get its own edits through.)
 
 | File | Purpose |
 |---|---|
@@ -120,7 +124,8 @@ Undo: `sudo systemctl set-property user-$(id -u).slice IPAddressDeny=`
 
 This is a fence, not a sandbox. Pattern rules catch the observed behaviour and its obvious variants. They do not
 catch a model that deliberately obfuscates (base64, assembled strings, new hosts), and it reads started scripts
-one level deep: a script that imports or downloads its payload at runtime is not followed. Combine it with what you have:
+one level deep: a script that imports or downloads its payload at runtime is not followed. The self-protection is
+pattern-based too: an agent with a shell and `sudo` that assembles the path from pieces can still get through. Combine it with what you have:
 approvals for risky commands, no passwordless `sudo` for the agent user, secrets outside the agent's reach, an egress
 filter where you can afford one. The fence is the layer that costs your agent nothing.
 

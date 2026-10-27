@@ -27,6 +27,7 @@ import ipaddress
 import os
 import re
 import shlex
+import time
 from pathlib import Path
 
 AUSFUEHREN = {"terminal", "execute_code", "process_manage"}
@@ -228,6 +229,81 @@ def _bekannt(h: str) -> bool:
     return _lokal(h) or any(h == b or h.endswith("." + b) for b in bekannte_ziele())
 
 
+# --- Selbstschutz ----------------------------------------------------------------------------
+# Der Agent darf den Zaun nicht per Werkzeug abschalten oder umschreiben: keine Schalter setzen,
+# keine Plugin- oder Einstellungsdateien ändern, kein `plugins disable`. Lesen bleibt erlaubt
+# (Protokoll, Regeln). Schalten geht nur aus der eigenen Shell des Betreibers. Diese Regel gilt
+# auch im Modus „nur melden“.
+PLUGIN_NAME = "qwen-fence"
+_HERMES_HOME = ZIELE_DATEI.parent
+_PLUGIN_DIR = Path(__file__).resolve().parent
+_AENDERND = re.compile(
+    r"\b(rm|rmdir|mv|cp|ln|touch|tee|truncate|chmod|chown|chattr|install|rsync|unlink|shred|dd|patch)\b"
+    r"|\bsed\s+(-[a-zA-Z]*\s+)*-[a-zA-Z]*i|\bperl\s+-[a-zA-Z]*i"
+    r"|\bopen\([^)]*['\"][wax+]|write_text|write_bytes|os\.(remove|unlink|rename|replace|symlink|chmod)|shutil\."
+    r"|\.(unlink|rename|replace|touch|symlink_to|rmdir)\(",
+    _I)
+_ABSCHALTEN = re.compile(
+    rf"plugins\s+(disable|remove|rm|uninstall|update)\b[^\n;&|]*{PLUGIN_NAME}|HERMES_SAFE_MODE|HERMES_PLUGINS_DISABLE", _I)
+_SELBSTSCHUTZ_GRUND = "Selbstschutz: Der Zaun wird nur vom Betreiber geschaltet, nicht per Werkzeug"
+
+
+_schutz_stand: tuple[float, re.Pattern | None] = (0.0, None)
+
+
+def _geschuetzt() -> re.Pattern:
+    """Pfade und Namen, die der Agent nicht ändern darf (das Protokoll gehört nicht dazu).
+    Wird höchstens alle 30 s neu aufgebaut: Symlink-Ziele auflösen kostet unter WSL spürbar Zeit."""
+    global _schutz_stand
+    jetzt = time.monotonic()
+    if _schutz_stand[1] is not None and jetzt - _schutz_stand[0] < 30:
+        return _schutz_stand[1]
+    teile = [rf"{PLUGIN_NAME}\.(aus|nur-melden|ziele|melden)\b", rf"plugins/{PLUGIN_NAME}\b", re.escape(str(_PLUGIN_DIR))]
+    if PLUGIN_NAME in _PLUGIN_DIR.parent.name:
+        teile.append(re.escape(str(_PLUGIN_DIR.parent)))  # z. B. /srv/ai/tools/qwen-fence
+    for name in ("ziele", "melden"):
+        try:
+            ziel = (_HERMES_HOME / f"{PLUGIN_NAME}.{name}").resolve(strict=True)
+            teile.append(re.escape(str(ziel)))
+        except OSError:
+            pass
+    muster = re.compile("|".join(teile), _I)
+    _schutz_stand = (jetzt, muster)
+    return muster
+
+
+def _selbstschutz(tool: str, args: dict, befehl: str, streng: str) -> bool:
+    schutz = _geschuetzt()
+    if tool in AUSFUEHREN:
+        for teil in re.split(r"&&|\|\||[;\n]", befehl):
+            if _ABSCHALTEN.search(teil):
+                return True
+            if any(schutz.search(ziel) for ziel in _ZIEL_DATEI.findall(teil)):
+                return True  # Umleitung in eine geschützte Datei
+            zielt = schutz.search(teil) or ("config.yaml" in teil and PLUGIN_NAME in teil)
+            if zielt and _AENDERND.search(teil):
+                return True
+        return bool(streng and schutz.search(streng) and _AENDERND.search(streng))
+    if tool in SCHREIBEN:
+        pfad = next((str(args[k]) for k in _PFAD_SCHLUESSEL if args.get(k)), "")
+        if not pfad:
+            return False
+        echt = str(Path(os.path.expanduser(pfad)).resolve())
+        if schutz.search(pfad) or schutz.search(echt):
+            return True
+        if Path(pfad).name == "config.yaml":
+            alt = str(args.get("old_string") or "")
+            neu = " ".join(str(args.get(k) or "") for k in SCHREIBEN[tool])
+            if tool == "write_file":
+                try:
+                    alt = Path(echt).read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    alt = ""
+            if PLUGIN_NAME in alt and PLUGIN_NAME not in neu:
+                return True  # das Plugin würde aus der Konfiguration verschwinden
+    return False
+
+
 def pruefen(tool: str, args) -> tuple[str, str, str] | None:
     """Liefert (stufe, regel, grund) oder None. stufe = 'sperren' | 'melden'."""
     if not isinstance(args, dict):
@@ -235,6 +311,8 @@ def pruefen(tool: str, args) -> tuple[str, str, str] | None:
     befehl, code, skripte = _teile(tool, args)
     text = "\n".join(t for t in (befehl, code) if t)
     streng = "\n".join(t for t in (code, skripte) if t)
+    if _selbstschutz(tool, args, befehl, streng):
+        return ("sperren", "selbstschutz", _SELBSTSCHUTZ_GRUND)
     if not (text or streng) or len(text) + len(streng) > 1024 * 1024:
         return None
 
