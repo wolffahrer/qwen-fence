@@ -3,6 +3,12 @@
 <p align="center"><img src="assets/banner.png" alt="Qwen-Fence – Hermes Agent plugin by KI SOUVERÄN: no phoning home" width="100%"></p>
 
 # Qwen-Fence
+> [!WARNING]
+> **Status: shelved (01.11.2026).** The report this guard was built for, Cohere's note on
+> Qwen3.8-Flash-Next from 26.10.2026, stayed unproven. The fence is switched off and this
+> repository is read-only. The code stays: the switch files under `~/.hermes/` still work if the
+> guard is ever needed again.
+
 
 A Hermes Agent plugin that checks every tool call **before it runs** and blocks the exfiltration patterns
 Cohere observed in Qwen3.8-Flash-Next. Normal agent work passes untouched. (Formerly `qwen-zaun`; old links redirect here.)
