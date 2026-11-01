@@ -3,6 +3,12 @@
 <p align="center"><img src="assets/banner.png" alt="Qwen-Fence – Hermes-Agent-Plugin von KI SOUVERÄN: kein Nach-Hause-Telefonieren" width="100%"></p>
 
 # Qwen-Fence
+> [!WARNUNG]
+> **Status: eingestellt (01.11.2026).** Die Meldung, für die dieser Zaun gebaut wurde, der
+> Cohere-Bericht zu Qwen3.8-Flash-Next vom 26.10.2026, ist unbewiesen geblieben. Der Zaun ist
+> ausgeschaltet, dieses Repository ist read-only. Der Code bleibt stehen: die Schalter unter
+> `~/.hermes/` funktionieren, falls der Schutz wieder gebraucht wird.
+
 
 Ein Hermes-Agent-Plugin, das jeden Werkzeugaufruf **vor der Ausführung** prüft. Es sperrt die Muster, mit denen
 Qwen3.8-Flash-Next laut Cohere Daten abfließen lassen wollte. Normale Agentenarbeit läuft unverändert durch.
